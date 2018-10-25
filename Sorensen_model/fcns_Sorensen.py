@@ -339,3 +339,159 @@ def sim_Sorensen(t,p,Gb,Ib,r_IVG,r_IVI):
         x[i,:] = y[-1,:]    
     
     return x
+
+# this function uses ode solver to simulate euglycemic glucose clamp for Sorensen model
+# it returns state vector and glucose infusion vector (r_IVG [mmol/min/kg])
+# glucose infusion signal is generated in simulation
+# additional function argument - BW [kg] is bodyweight of simulated subject
+def sim_Sorensen_eugc(t,p,Gb,Ib,r_IVI,BW):
+
+    alpha, beta, K, M1, M2, gamma = p 
+
+    # total interstitial volume
+    Vi1 = 8.4/70 # [L/kg]
+
+    # interstitial volumes of brain and peripheries
+    # [L/kg]
+    VG_BI = Vi1*0.054
+    VG_PI = Vi1*0.802
+
+    # total flow rate of whole blood water glucose
+    # [L/min/kg]
+    QG = 5.2/70*0.8
+    
+    QG_B = QG*0.135
+    QG_A = QG*0.058
+    QG_L = QG*0.288
+    QG_G = QG*0.231
+    QG_P = QG*0.346
+    
+    TG_B = 2.1
+    TG_P = 5
+
+    # interstitial volume of peripheries
+    # [L/kg]
+    VI_PI = Vi1*0.802
+
+    # total flow rate of plasma insulin
+    # [L/min/kg]
+    QI = 5.2/70*0.6
+    
+    # [L/min/kg]
+    QI_B = QI*0.135
+    QI_H = deepcopy(QI)
+    QI_A = QI*0.058
+    QI_L = QI*0.288
+    QI_G = QI*0.231
+    QI_K = QI*0.231
+    QI_P = QI*0.346
+    
+    TI_P = 20
+        
+    Q0   = 6.33
+
+    # steady state stuff
+    
+    # basal hepatic glucose production
+    rB_HGP = 0.861/70    
+    
+    # constant (brain, RBCs, gut)
+    # [mmol/min/kg]
+    r_BGU  = rB_HGP*0.451
+    r_GGU  = rB_HGP*0.129
+    
+    # basal metabolic rates (hepatic and peripheral uptakes)
+    # [mmol/min/kg]
+    rB_HGU = rB_HGP*0.129
+    rB_PGU = rB_HGP*0.226
+        
+    # here goes the steady state calculation
+    # in this case we assume that glucose and insulin measurements are done from
+    # arterial blood, since we are doing the glucose clamp experiment
+    # comment/uncomment lines where needed
+    
+#    GB_PV = Gb # use this if peripheral glucose is known
+    GB_H = Gb # use this if arterial glucose is known
+    
+#    GB_H  = rB_PGU/QG_P + GB_PV # use this if peripheral glucose is known
+    GB_PV = GB_H - rB_PGU/QG_P # use this if arterial glucose is known
+    GB_PI = -TG_P/VG_PI*rB_PGU + GB_PV 
+    GB_H  = rB_PGU/QG_P + GB_PV
+    GB_K  = GB_H
+    GB_G  = -r_GGU/QG_G + GB_H
+    GB_L  = 1/QG_L * (QG_A * GB_H + QG_G * GB_G + rB_HGP - rB_HGU) 
+    GB_BV = -r_BGU/QG_B + GB_H
+    GB_BI = -r_BGU * TG_B/VG_BI + GB_BV
+
+   
+#    IB_PV = Ib # use this if peripheral insulin is known
+    IB_H = Ib # use this if arterial insulin is known
+    
+#    IB_H = IB_PV/(1-0.15) # use this if peripheral insulin is known
+    IB_PV= IB_H*(1-0.15) # use this if arterial insulin is known
+    IB_K = IB_H*(1-0.3)
+    IB_B = IB_H
+    IB_G = IB_H
+    IB_PI= IB_PV - (QI_P*TI_P/VI_PI * (IB_H - IB_PV)) 
+    IB_L = 1/QI_L * (QI_H * IB_H - QI_B * IB_B - QI_K * IB_K - QI_P * IB_PV)
+
+    rB_PIR = QI_L/(1-0.4) * IB_L - QI_G * IB_G - QI_A * IB_H
+    
+    XB = GB_H**3.12 / (7.85**3.12 + 3.06*GB_H**2.88)
+    PB_inf = XB**1.1141 
+    YB = XB**1.1141 
+    IB = deepcopy(XB)
+    PB = deepcopy(PB_inf)
+    
+    QB = (K*Q0 + gamma*PB)/(K + M1*YB)
+    SB = M1 * YB * QB
+    
+    GammaB = 1
+    
+    MIB_HGP = 1
+    MIB_HGU = 1
+    ffB = 0
+    x0 = [GB_BV, GB_BI, GB_H, GB_G, GB_L, GB_K, GB_PV, GB_PI, MIB_HGP, ffB, MIB_HGU, IB_B, IB_H, IB_G, IB_L, IB_K, IB_PV, IB_PI, PB, IB, QB, GammaB]
+    Basal = [GB_BV, GB_BI, GB_H, GB_G, GB_L, GB_K, GB_PV, GB_PI, IB_B, IB_H, IB_G, IB_L, IB_K, IB_PV, IB_PI, GammaB, rB_PIR, SB]
+
+    Ts=t[1]-t[0]
+    idx_final=t.size
+    
+    x=np.zeros([idx_final,len(x0)])
+    x[0,:]=x0
+    r_IVG=np.zeros(idx_final)
+    # here are the parameters and initial conditions for euglycemic clamp technique 
+    # feedback algorithm 
+    Ts2=5 # sample time for glucose measurements [min]
+    k=0
+    r=0
+    gammac=8.87/10
+    FM=[0, 1]
+    SM=[0, 280/180, 280/180]
+
+    for i in range(1,idx_final):
+        y=odeint(fcn_Sorensen,x[i-1,:],np.linspace((i-1)*Ts,i*Ts),
+                 args=(p,
+                       Basal,
+                       r_IVG[i-1],r_IVI[i-1],), rtol=1e-5
+                 )
+        x[i,:] = y[-1,:]   
+        # here is the algorithm itself
+        # there can be many types of euglycemic clamp algorithms
+        # this one is implemented on the basis of Sorensen's work
+        if t[i]>=Ts2*k:           
+            Gh=x[i,2]
+            if k==0:
+                r=0
+            elif k==1:
+                r=140/180
+            else:
+                FM[0]=Gb/Gh
+                SM[0]=SM[2]*FM[1]*FM[0]
+                r=gammac*(Gb-Gh)+SM[0]
+                FM=np.roll(FM,1)
+                SM=np.roll(SM,1)  
+            k+=1  
+        r_IVG[i]=r/BW
+    
+    return x,r_IVG
