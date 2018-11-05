@@ -38,7 +38,7 @@ ttBas=ts2time(Basdt,reft)
 ttBol=ts2time(Boldt,reft)
 
 
-# vytvorenie casoveho vektoru
+# time vector
 Ts=5
 t_stop = np.max([ttD[-1], ttG[-1], ttBas[-1], ttBol[-1]])
 idx_final = int(t_stop/Ts) + 1
@@ -52,14 +52,14 @@ for cas in tt[1:]:
     ttd.append(reft+datetime.timedelta(minutes=int(cas)))
     
     
-# interpolacia CGM dat
+# CGM data interpolation
 Graw=G_data1.CGM
 G=np.interp(tt,ttG,Graw)
 
 #plt.plot(tt/60/24,G)
 #plt.plot(np.asarray(ttG)/60/24,Graw,'ro')
 
-# vytvorenie signalu d
+# generation of d(t) [g/min] signal - rate of carbohydrate intake
 d=D_data1.Carbs
 CarbTable=np.vstack((ttD,d))
 CarbTable=np.transpose(CarbTable)
