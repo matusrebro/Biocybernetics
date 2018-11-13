@@ -99,29 +99,71 @@ vsig = vbol + vbas #v_b
 idx_final=tt.shape[0]
 
 
-from Gpredfun import Gpredarx2, clarkeEGA
+from Gpredfun import Gpredarx2, clarkeEGA, Gpredarmax2
 
 
-plt.figure()
-plt.subplot(311)
-plt.plot(tt/60/24,G,'k')
-plt.title(r'Glycemia')
-plt.xlabel(r'time [days]')
-plt.ylabel(r'$G$ [mmol/L]')
-plt.subplot(312)
-plt.plot(tt/60/24,vsig/1000,'k')
-plt.title(r'rate of insulin administration')
-plt.yticks([0,0.4,0.8,1.2])
-plt.xlabel(r'čas [days]')
-plt.ylabel(r'$v$ [U/min]')
-plt.subplot(313)
-plt.plot(tt/60/24,dsig,'k')
-plt.title(r'rate of carbohydrate intake')
-plt.yticks([0,4,8,12,16])
-plt.xlabel(r'time [days]')
-plt.ylabel(r'$d$ [g/min]')
-plt.savefig('CGMdata.pdf')
-plt.close('all')
+def cm2inch(value):
+    return value/2.54
+
+import matplotlib as mpl
+
+mpl.rcParams['figure.autolayout'] = True
+
+###############################################################################
+
+mpl.rcParams['xtick.direction'] = 'out'
+mpl.rcParams['xtick.labelsize'] = mpl.rcParams['font.size']
+
+mpl.rcParams['ytick.direction'] = 'out'
+mpl.rcParams['ytick.labelsize'] = mpl.rcParams['font.size']
+
+mpl.rcParams['figure.dpi'] = 119
+mpl.rcParams['figure.facecolor'] = 'w'
+
+###############################################################################
+
+mpl.rcParams['font.family'] = [r'Times New Roman']
+
+#mpl.rcParams['text.usetex'] = False
+mpl.rcParams['text.usetex'] = True
+mpl.rcParams['text.latex.unicode'] = True
+mpl.rcParams['text.latex.preamble'] = [r'\usepackage[T1]{fontenc}', r'\usepackage{lmodern}']
+#mpl.rcParams['text.latex.preamble'] = '\usepackage[T1]{fontenc}, \usepackage{txfonts}'
+
+mpl.rcParams['font.size'] = 10
+mpl.rcParams['xtick.labelsize'] = 10
+mpl.rcParams['ytick.labelsize'] = 10
+
+mpl.rcParams['axes.titlesize'] = mpl.rcParams['font.size']
+mpl.rcParams['axes.labelsize'] = mpl.rcParams['font.size']
+mpl.rcParams['legend.fontsize'] = mpl.rcParams['font.size']
+mpl.rcParams['legend.frameon'] = False
+mpl.rcParams['legend.borderpad'] = 0.1
+mpl.rcParams['legend.borderaxespad'] = 0.0
+mpl.rcParams['legend.labelspacing'] = 0.2
+mpl.rcParams['legend.numpoints'] = 1
+
+
+#plt.figure()
+#plt.subplot(311)
+#plt.plot(tt/60/24,G,'k')
+#plt.title(r'Glycemia')
+#plt.xlabel(r'time [days]')
+#plt.ylabel(r'$G$ [mmol/L]')
+#plt.subplot(312)
+#plt.plot(tt/60/24,vsig/1000,'k')
+#plt.title(r'rate of insulin administration')
+#plt.yticks([0,0.4,0.8,1.2])
+#plt.xlabel(r'čas [days]')
+#plt.ylabel(r'$v$ [U/min]')
+#plt.subplot(313)
+#plt.plot(tt/60/24,dsig,'k')
+#plt.title(r'rate of carbohydrate intake')
+#plt.yticks([0,4,8,12,16])
+#plt.xlabel(r'time [days]')
+#plt.ylabel(r'$d$ [g/min]')
+#plt.savefig('CGMdata.pdf')
+#plt.close('all')
 
 
 Gpb=8
@@ -129,24 +171,51 @@ fz=1
 N=12
 mao=0
 
+#GpredN,theta,thetak,Gf=Gpredarx2(G,Gpb,dsig,vsig,6,6,6,N,fz,mao)
+GpredN,theta,thetak,Gf=Gpredarmax2(G,Gpb,dsig,vsig,6,6,6,6,N,fz,mao)
 
-GpredN,theta,thetak,Gf=Gpredarx2(G,Gpb,dsig,vsig,6,6,6,N,fz,mao)
+Cdata=dsig*Ts
+Vbasdata=vbas/1e3*60
+Vboldata=vbol/1e3*Ts
 
 plt.figure()
-plt.subplot(211)
+plt.subplot(311)
 plt.ylim([0,30])
+plt.xlim([0,5.1])
 plt.plot(tt/60/24,G,'ko',markersize=0.8,label='CGM')
-plt.plot(tt/60/24,GpredN,'r',label=r'prediction')
+plt.plot(tt/60/24,GpredN,'gray',label=r'prediction')
 plt.title(r'Glycemia')
-plt.xlabel(r'čas [dni]')
+plt.xlabel(r'time [days]')
 plt.ylabel(r'$G$ [mmol/L]')
 plt.legend()
-plt.subplot(212)
-plt.plot(tt/60/24,theta[:,0],'k-')
-plt.plot(tt/60/24,theta[:,1:],'k-')
-plt.title(r'model parameters')
-plt.xlabel(r'čas [dni]')
-plt.ylabel(r'$\theta$')
+plt.subplot(312)
+plt.title(r'Carbohydrates')
+plt.xlim([0,5.1])
+plt.stem(tt[Cdata>0]/60/24,Cdata[Cdata>0],'k',markerfmt='ko', basefmt='k')
+plt.xlabel(r'time [days]')
+plt.ylabel('C [g]')
+
+plt.subplot(313)
+plt.title(r'Basal (full line) and bolus (stem) insulin')
+plt.xlim([0,5.1])
+plt.plot(tt/60/24,Vbasdata,'k')
+plt.xlabel(r'time [days]')
+plt.ylabel(r'Basal [U/h]')
+plt.twinx()
+plt.xlim([0,5.1])
+plt.stem(tt[Vboldata>0]/60/24,Vboldata[Vboldata>0],'k',markerfmt='ko', basefmt='k')
+plt.xlabel(r'time [days]')
+plt.ylabel(r'Bolus [U]')
+plt.savefig('Glycemia prediction.pdf')
+plt.close('all')
+
+
+#plt.subplot(212)
+#plt.plot(tt/60/24,theta[:,0],'k-')
+#plt.plot(tt/60/24,theta[:,1:],'k-')
+#plt.title(r'model parameters')
+#plt.xlabel(r'čas [dni]')
+#plt.ylabel(r'$\theta$')
 plt.savefig('prediction.pdf')
 plt.close('all')
 
