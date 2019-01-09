@@ -116,6 +116,45 @@ def fcn_BergmanGIo3(x,t,p,d,Gb,Ib):      # Ra [mmol/min] , I [mU/L]
     return np.array([G_dot, X_dot, D_dot, Ra_dot, I_dot, v2_dot, v3_dot])
 
 
+# ---- exercise effects
+# model of exercise effect on glucose and insulin levels
+
+def fcn_Ex(x,t,p,ux,Gb,Ib):
+    G, X, I, v2, PVO, Gprod, Gup, Ggly, Ie, A = x
+    Tg, Kx, V_G, Tx, Ti, Kg1, Kg2, T2, V_I, a1, a2, a3, a4, a5, a6, k, Tgly  = p   
+    
+    G_dot= -Kx * X*G - 1/Tg * (G-Gb) + 1/V_G * (Gprod - Gup - Ggly)
+    X_dot= -1/Tx * X + 1/Tx * (I-Ib)
+    S = Kg1*(G-Gb) + Kg2/T2*(G-Gb)-v2
+    I_dot= -1/Ti* (I-Ib) + np.max([S,0]) - Ie
+    v2_dot= -1/T2 * v2 + Kg2/(T2**2) * (G-Gb)
+
+    PVO_dot = -0.8*PVO + 0.8*ux
+    Gprod_dot = -a2*Gprod + a1*PVO    
+    Gup_dot = -a4*Gup + a3*PVO  
+    
+    Ath = -1.1521*ux**2 + 87.47*ux
+    
+    Ggly_dot = 0
+    if A<Ath:
+        pass
+    elif A>=Ath:
+        Ggly_dot=k
+        
+    if ux==0:
+        Ggly_dot= - Ggly/Tgly
+ 
+    Ie_dot = -a6*Ie + a5*PVO
+       
+    A_dot = ux
+    if ux>0:
+        pass
+    elif ux==0:
+        A_dot = -A/0.001
+
+    return np.array([G_dot, X_dot, I_dot, v2_dot, PVO_dot, Gprod_dot, Gup_dot, Ggly_dot, Ie_dot, A_dot])
+
+
 # ---- simulation functions
     
 def sim_BergmanGI1(t,p,RaG,RaI,Gb,Ib):
@@ -326,4 +365,18 @@ def sim_BergmanGIo3(t,p,d,Gb,Ib):
                        d[i-1],Gb,Ib,)
                  )
         x[i,:] = y[-1,:]
+    return x
+
+def sim_Ex(t,p,ux,Gb,Ib):
+    Ts=t[1]-t[0] 
+    idx_final=int(t[-1]/Ts)+1    
+    x0=np.array([Gb, 0, Ib, 0, 0, 0, 0, 0, 0, 0])   
+    x=np.zeros([idx_final,len(x0)])
+    x[0,:]=x0   
+    for i in range(1,idx_final):
+        y=odeint(fcn_Ex,x[i-1,:],np.linspace((i-1)*Ts,i*Ts),
+                 args=(p,
+                       ux[i-1],Gb, Ib, )
+                 )
+        x[i,:] = y[-1,:]        
     return x
