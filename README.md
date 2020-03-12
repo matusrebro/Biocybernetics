@@ -1,2 +1,2 @@
 # DiabetesStuff
-Modeling and simulation of glucose metabolism
+Modeling and simulation of biological systems
