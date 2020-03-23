@@ -91,7 +91,7 @@ def fcn_BergmanGIo2(x,t,p,d,Gb,Ib):
     D_dot= -1/Td1 * D + Kd/Td1 * d
     Ra_dot= -1/Td2 * Ra + 1/Td2 * D
     
-    S = Kg1*(G-Gb) + Kg2/T2*(G-Gb)-v2 + v3
+    S = Kg1*(G-Gb) + Kg2/T2*(G-Gb) - v2 + v3
     I_dot= -1/Ti* (I-Ib) + np.max([S,0]) 
     v2_dot= -1/T2 * v2 + Kg2/(T2**2) * (G-Gb)
     v3_dot= -1/T3 * v3 + Kg3a*D/T3 + Kg3b*Ra/T3
