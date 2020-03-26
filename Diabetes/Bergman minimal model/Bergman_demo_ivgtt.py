@@ -177,7 +177,18 @@ plt.plot(t,Isim,'k',label=r'model A, $R^2$='+str(np.round(r_squared(Idata1[:,1],
 
 
 parGIh=np.hstack((parG1h[:],parI2h[:]))
+
+# Tg, Kx, V_G, Tx, Ti, Kg1, Kg2, T2, V_I = parGIh
+
+
 x=sim_BergmanGI2(t,parGIh,RaG,RaI,Gb,Ib)
+
+x1=sim_BergmanGI2(t,parGIh,RaG,RaI,Gb,Ib)
+plt.plot(t,x1)
+
+plt.plot(t,x[:,0])
+
+
 Gsim=x[:,0]
 Isim=x[:,2]
 Gm=resamp(t,Gdata1[:,0],Gsim)

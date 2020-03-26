@@ -125,6 +125,7 @@ plt.plot(t,Isim,'k',label=r'model D, $R^2$='+str(np.round(r_squared(ogtt_ins_hea
 
 parI=np.hstack((np.loadtxt('parI2h3.csv')[0:4],np.loadtxt('parI2h3o1.csv')))
 par=np.hstack((parG, parI))
+
 #Tg, Kx, V_G, Tx, Kd, Td1, Td2, Ti, Kg1, Kg2, T2, Kg3a, Kg3b
 x=sim_BergmanGIo1(t,par,d,Gb,Ib)
 Gsim=x[:,0]
@@ -138,6 +139,7 @@ plt.plot(t,Isim,'k--',label=r'model E, $R^2$='+str(np.round(r_squared(ogtt_ins_h
 
 parI=np.hstack((np.loadtxt('parI2h3.csv')[0:4],np.loadtxt('parI2h3o2.csv')))
 par=np.hstack((parG, parI))
+
 #Tg, Kx, V_G, Tx, Kd, Td1, Td2, Ti, Kg1, Kg2, T2, T3, Kg3a, Kg3b
 x=sim_BergmanGIo2(t,par,d,Gb,Ib)
 Gsim=x[:,0]
@@ -151,6 +153,7 @@ plt.plot(t,Isim,'k-.',label=r'model F, $R^2$='+str(np.round(r_squared(ogtt_ins_h
 
 parI=np.hstack((np.loadtxt('parI2h3.csv')[0:4],np.loadtxt('parI2h3o3.csv')))
 par=np.hstack((parG, parI))
+
 # Tg, Kx, V_G, Tx, Kd, Td1, Td2, Ti, Kg1, Kg2, T2, Kg1m, Kg2m, T3, Kg3a, Kg3b
 x=sim_BergmanGIo3(t,par,d,Gb,Ib)
 Gsim=x[:,0]
@@ -184,6 +187,7 @@ parG=np.hstack((np.loadtxt('parG1d3.csv'),np.loadtxt('parG1d3o.csv')))
 parI2d=np.loadtxt('parI2d3.csv')[0:4]
 parI=np.hstack((np.loadtxt('parI2d3.csv')[0:4],np.loadtxt('parI2d3o0.csv')))
 par=np.hstack((parG, parI))
+
 #Tg, Kx, V_G, Tx, Kd, Td1, Td2, Ti, Kg1, Kg2, T2, Kg1m, Kg2m  
 x=sim_BergmanGIo0(t,par,d,Gb,Ib)
 Gsim=x[:,0]
@@ -203,6 +207,7 @@ plt.plot(t,Isim,'k',label=r'model D, $R^2$='+str(np.round(r_squared(ogtt_ins_t2d
 
 parI=np.hstack((np.loadtxt('parI2d3.csv')[0:4],np.loadtxt('parI2d3o1.csv')))
 par=np.hstack((parG, parI))
+
 x=sim_BergmanGIo1(t,par,d,Gb,Ib)
 Gsim=x[:,0]
 Isim=x[:,4]
@@ -216,6 +221,7 @@ plt.plot(t,Isim,'k--',label=r'model E, $R^2$='+str(np.round(r_squared(ogtt_ins_t
 
 parI=np.hstack((np.loadtxt('parI2d3.csv')[0:4],np.loadtxt('parI2d3o2.csv')))
 par=np.hstack((parG, parI))
+
 x=sim_BergmanGIo2(t,par,d,Gb,Ib)
 Gsim=x[:,0]
 Isim=x[:,4]
@@ -229,6 +235,7 @@ plt.plot(t,Isim,'k-.',label=r'model F, $R^2$='+str(np.round(r_squared(ogtt_ins_t
 
 parI=np.hstack((np.loadtxt('parI2d3.csv')[0:4],np.loadtxt('parI2d3o3.csv')))
 par=np.hstack((parG, parI))
+
 x=sim_BergmanGIo3(t,par,d,Gb,Ib)
 Gsim=x[:,0]
 Isim=x[:,4]
