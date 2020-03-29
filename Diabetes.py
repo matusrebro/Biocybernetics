@@ -43,7 +43,7 @@ def fcn_Bergman(x, t, p, RaG, RaI, S, Gb, Ib):
     
     return np.array([G_dot, X_dot, I_dot])
 
-
+# general model structure for both oral and intravenous inputs
 def fcn_Bergman_extended(x, t, p, RaG_iv, d, RaI, Gb, Ib,
                          incretin_effect_model = 'model1'):
     
@@ -54,13 +54,8 @@ def fcn_Bergman_extended(x, t, p, RaG_iv, d, RaI, Gb, Ib,
         T_G, Kx, V_G, T_X, Kd, Td1, Td2, T_I, Kg1, Kg2, T2, V_I, Kg1m, Kg2m = p  
         
         
-        if d != 0 or Ra != 0:
-            S = Kg1m*Kg1*(G-Gb) + Kg2m*Kg2/T2*(G-Gb)-v2
-            v2_dot = -1/T2 * v2 + Kg2m*Kg2/(T2**2) * (G-Gb)
-        else:
-            S = Kg1*(G-Gb) + Kg2/T2*(G-Gb)-v2
-            v2_dot = -1/T2 * v2 + Kg2/(T2**2) * (G-Gb)
-        
+        S = Kg1m*Kg1*(G-Gb) + Kg2m*Kg2/T2*(G-Gb)-v2
+        v2_dot = -1/T2 * v2 + Kg2m*Kg2/(T2**2) * (G-Gb)
         
         v3_dot = 0
                 
@@ -91,13 +86,23 @@ def fcn_Bergman_extended(x, t, p, RaG_iv, d, RaI, Gb, Ib,
         
         v2_dot= -1/T2 * v2 + (1+Kg2m*v3)*Kg2/(T2**2) * (G-Gb)
         v3_dot= -1/T3 * v3 + Kg3a*D/T3 + Kg3b*Ra/T3
+    
+    elif incretin_effect_model == 'none':
+        T_G, Kx, V_G, T_X, T_I, Kg1, Kg2, T2, V_I  = p
         
+        S = Kg1*(G-Gb) + Kg2/T2*(G-Gb) - v2
+        v2_dot = -1/T2 * v2 + Kg2/(T2**2) * (G-Gb)
+        v3_dot = 0
     else:
         raise ValueError('Invalid value for incretin_effect_model')
 
-    D_dot= -1/Td1 * D + Kd/Td1 * d
-    Ra_dot= -1/Td2 * Ra + 1/Td2 * D
 
+    if incretin_effect_model != 'none':
+        D_dot= -1/Td1 * D + Kd/Td1 * d
+        Ra_dot= -1/Td2 * Ra + 1/Td2 * D
+    else:
+        D_dot = 0
+        Ra_dot = 0
     G_dot, X_dot, I_dot = fcn_Bergman([G, X, I], 0, [T_G, Kx, V_G, T_X, T_I, V_I], (RaG_iv + Ra), RaI, S, Gb, Ib)
     
     return np.array([G_dot, X_dot, D_dot, Ra_dot, I_dot, v2_dot, v3_dot])
@@ -105,157 +110,184 @@ def fcn_Bergman_extended(x, t, p, RaG_iv, d, RaI, Gb, Ib,
 
 class minimal_model:
     
-    Gb = 0
-    Ib = 0
-    parameters = []
-    incretin_effect_model = ''
-    
-    def init_model(self, Gb, Ib, parameters='normal', incretin_effect_model = 'model1'):
+    class iv:
         
-        self.Gb = Gb
-        self.Ib = Ib
-        
-        if isinstance(parameters, str):
-            if parameters == 'normal':
-                if incretin_effect_model == 'model1':
-                    self.parameters = np.loadtxt(pathToParameters + 'par_normal_mean_inc1.csv')
-                elif incretin_effect_model == 'model2':
-                    self.parameters = np.loadtxt(pathToParameters + 'par_normal_mean_inc2.csv')
-                elif incretin_effect_model == 'model3':
-                    self.parameters = np.loadtxt(pathToParameters + 'par_normal_mean_inc3.csv')
-                elif incretin_effect_model == 'model4':
-                    self.parameters = np.loadtxt(pathToParameters + 'par_normal_mean_inc4.csv')
+        Gb = 0
+        Ib = 0
+        parameters = []
+        def init_model(self, Gb, Ib, parameters='normal'):
+            self.Gb = Gb
+            self.Ib = Ib
+            
+            if isinstance(parameters, str):
+                if parameters == 'normal':
+                    self.parameters = np.loadtxt(pathToParameters + 'par_normal_iv.csv')
+                elif parameters == 'obese':
+                    self.parameters = np.loadtxt(pathToParameters + 'par_obese_iv.csv')
+                elif parameters == 't2dm':
+                    self.parameters = np.loadtxt(pathToParameters + 'par_t2dm_iv.csv')
                 else:
-                    raise ValueError('Invalid value for incretin_effect_model')
-                    
-            elif parameters == 't2dm':
-                if incretin_effect_model == 'model1':
-                    self.parameters = np.loadtxt(pathToParameters + 'par_t2dm_mean_inc1.csv')
-                elif incretin_effect_model == 'model2':
-                    self.parameters = np.loadtxt(pathToParameters + 'par_t2dm_mean_inc2.csv')
-                elif incretin_effect_model == 'model3':
-                    self.parameters = np.loadtxt(pathToParameters + 'par_t2dm_mean_inc3.csv')
-                elif incretin_effect_model == 'model4':
-                    self.parameters = np.loadtxt(pathToParameters + 'par_t2dm_mean_inc4.csv')
-                else:
-                    raise ValueError('Invalid value for incretin_effect_model')
-                    
+                    raise ValueError('Invalid value for default parameters')
             else:
-                raise ValueError('Invalid value for string parameters')
-        else:
-            self.parameters = parameters
-        self.incretin_effect_model = incretin_effect_model
-
+                self.parameters = parameters
+    
+                
+        def __init__(self, Gb, Ib, parameters = 'normal'):
+            self.init_model(Gb, Ib, parameters)
+        
+        def simulation(self, t, RaG_iv, RaI, plot = True):
+            """
+            t - time array in minutes
+            RaG_iv - intravenous glucose infusion array in mmol/min/kg
+            RaI - intravenous insulin infusion array in mU/min/kg
+            """        
             
-    def __init__(self, Gb, Ib, parameters = 'normal', incretin_effect_model = 'model1'):
-        self.init_model(Gb, Ib, parameters, incretin_effect_model)
-        
-        
-    def simulation(self, t, d, RaG_iv, RaI, plot = True):
-        """
-        t - time array in minutes
-        d - carbohydrate intake array in mmol/min/kg
-        RaG_iv - intravenous glucose infusion in mmol/min/kg
-        RaI - intravenous insulin infusion in mU/min/kg
-        """        
-        Ts = t[1]-t[0] 
-        idx_final = int(t[-1]/Ts)+1    
-        x0 = np.array([self.Gb, 0, 0, 0, self.Ib, 0, 0])   
-        x = np.zeros([idx_final, len(x0)])
-        x[0,:] = x0   
-        
-        for i in range(1,idx_final):
-            y = odeint(fcn_Bergman_extended, x[i-1,:], np.linspace((i-1)*Ts,i*Ts),
-                     args=(self.parameters,
-                           RaG_iv[i-1], d[i-1], RaI[i-1], self.Gb, self.Ib,)
-                     )
-            x[i,:] = y[-1,:]
             
-        if plot:
-            plt.figure()
-            plt.subplot(211)
-            plt.plot(t, x[:,0])
-            plt.xlabel('time [min]')
-            plt.ylabel('glycemia [mmol/L]')
-            plt.grid()
-            plt.subplot(212)
-            plt.plot(t, x[:,4])
-            plt.xlabel('time [min]')
-            plt.ylabel('plasma insulin [mU/L]')
-            plt.grid()
-        return x
+            Ts = t[1]-t[0] 
+            idx_final = int(t[-1]/Ts)+1    
+            x0 = np.array([self.Gb, 0, 0, 0, self.Ib, 0, 0])   
+            x = np.zeros([idx_final, len(x0)])
+            x[0,:] = x0   
+            
+            for i in range(1,idx_final):
+                y = odeint(fcn_Bergman_extended, x[i-1,:], np.linspace((i-1)*Ts,i*Ts),
+                         args=(self.parameters,
+                               RaG_iv[i-1], 0, RaI[i-1], self.Gb, self.Ib,
+                               'none', )
+                         )
+                x[i,:] = y[-1,:]
+                
+            if plot:
+                plt.figure()
+                plt.subplot(211)
+                plt.plot(t, x[:,0])
+                plt.xlabel('time [min]')
+                plt.ylabel('glycemia [mmol/L]')
+                plt.grid()
+                plt.subplot(212)
+                plt.plot(t, x[:,4])
+                plt.xlabel('time [min]')
+                plt.ylabel('plasma insulin [mU/L]')
+                plt.grid()
+            return x
 
-
-    def ogtt(self, glucose = 50, bodyweight = 70, plot = True):
+        def ivgtt(self, glucose_dose = 0.3, glucose_bolus_min = 2, insulin_dose = 20, insulin_bolus_min = 5, insulin_dosage_time = 20, plot = True ):
+            
+            """
+            glucose_dose - glucose bolus in g/kg
+            glucose_bolus_min - time during the glucose bolus is administred in minutes
+            insulin_dose - insulin bolus in mU/kg
+            insulin_bolus_min - time during the insulin bolus is administred in minutes
+            insulin_dosage_time - time at which the insulin bolus is administred in minutes (from start of the ivgtt)
+            """
+            
+            glucose_bolus = glucose_dose*1e3/180 # [mmol/kg]
+            
+            t = np.arange(0,180,1)
+            RaG_iv = np.zeros_like(t, dtype = float)
+            RaG_iv[0:int(glucose_bolus_min/1)] = glucose_bolus/1/glucose_bolus_min
+            RaI = np.zeros_like(t, dtype = float)
+            RaI[int(insulin_dosage_time/1):int(insulin_dosage_time/1)+int(insulin_bolus_min/1)] = insulin_dose/1/insulin_bolus_min
+            
+            x = self.simulation(t, RaG_iv, RaI, plot)
+            
+            return x[:,0], x[:,4] # G, I
         
-        """
-        glucose - amount of glucose intake for ogtt in grams
-        bodyweight - subject bodyweight in kilograms
-        """
         
-        t = np.arange(0,180,1)
-        RaG_iv = np.zeros_like(t, dtype = float)
-        RaI = np.zeros_like(t, dtype = float)
-        d = np.zeros_like(t, dtype = float)
-        d[0]=glucose * 1e3 / 180/ 1 / bodyweight
-        x = self.simulation(t, d, RaG_iv, RaI, plot)
+    class oral:
         
-        return x[:,0], x[:,4] # G, I
+        Gb = 0
+        Ib = 0
+        parameters = []
+        incretin_effect_model = ''
         
-    def ivgtt(self, glucose_dose = 0.3, glucose_bolus_min = 2, insulin_dose = 20, insulin_bolus_min = 5, insulin_dosage_time = 20, plot = True ):
+        def init_model(self, Gb, Ib, parameters='normal', incretin_effect_model = 'model1'):
+            
+            self.Gb = Gb
+            self.Ib = Ib
+            
+            if isinstance(parameters, str):
+                if parameters == 'normal':
+                    if incretin_effect_model == 'model1':
+                        self.parameters = np.loadtxt(pathToParameters + 'par_normal_oral_inc1.csv')
+                    elif incretin_effect_model == 'model2':
+                        self.parameters = np.loadtxt(pathToParameters + 'par_normal_oral_inc2.csv')
+                    elif incretin_effect_model == 'model3':
+                        self.parameters = np.loadtxt(pathToParameters + 'par_normal_oral_inc3.csv')
+                    elif incretin_effect_model == 'model4':
+                        self.parameters = np.loadtxt(pathToParameters + 'par_normal_oral_inc4.csv')
+                    else:
+                        raise ValueError('Invalid value for incretin_effect_model')
+                        
+                elif parameters == 't2dm':
+                    if incretin_effect_model == 'model1':
+                        self.parameters = np.loadtxt(pathToParameters + 'par_t2dm_oral_inc1.csv')
+                    elif incretin_effect_model == 'model2':
+                        self.parameters = np.loadtxt(pathToParameters + 'par_t2dm_oral_inc2.csv')
+                    elif incretin_effect_model == 'model3':
+                        self.parameters = np.loadtxt(pathToParameters + 'par_t2dm_oral_inc3.csv')
+                    elif incretin_effect_model == 'model4':
+                        self.parameters = np.loadtxt(pathToParameters + 'par_t2dm_oral_inc4.csv')
+                    else:
+                        raise ValueError('Invalid value for incretin_effect_model')
+                        
+                else:
+                    raise ValueError('Invalid value for default parameters')
+            else:
+                self.parameters = parameters
+            self.incretin_effect_model = incretin_effect_model
+    
+                
+        def __init__(self, Gb, Ib, parameters = 'normal', incretin_effect_model = 'model1'):
+            self.init_model(Gb, Ib, parameters, incretin_effect_model)
         
-        """
-        glucose_dose - glucose bolus in g/kg
-        glucose_bolus_min - time during the glucose bolus is administred in minutes
-        insulin_dose - insulin bolus in mU/kg
-        insulin_bolus_min - time during the insulin bolus is administred in minutes
-        insulin_dosage_time - time at which the insulin bolus is administred in minutes (from start of the ivgtt)
-        """
         
-        glucose_bolus = glucose_dose*1e3/180 # [mmol/kg]
+        def simulation(self, t, d, plot = True):
+            """
+            t - time array in minutes
+            d - carbohydrate intake array in mmol/min/kg
+            """        
+            Ts = t[1]-t[0] 
+            idx_final = int(t[-1]/Ts)+1    
+            x0 = np.array([self.Gb, 0, 0, 0, self.Ib, 0, 0])   
+            x = np.zeros([idx_final, len(x0)])
+            x[0,:] = x0   
+            
+            for i in range(1,idx_final):
+                y = odeint(fcn_Bergman_extended, x[i-1,:], np.linspace((i-1)*Ts,i*Ts),
+                         args=(self.parameters,
+                               0, d[i-1], 0, self.Gb, self.Ib,
+                               self.incretin_effect_model, )
+                         )
+                x[i,:] = y[-1,:]
+                
+            if plot:
+                plt.figure()
+                plt.subplot(211)
+                plt.plot(t, x[:,0])
+                plt.xlabel('time [min]')
+                plt.ylabel('glycemia [mmol/L]')
+                plt.grid()
+                plt.subplot(212)
+                plt.plot(t, x[:,4])
+                plt.xlabel('time [min]')
+                plt.ylabel('plasma insulin [mU/L]')
+                plt.grid()
+            return x
+
+
+        def ogtt(self, glucose = 50, bodyweight = 70, plot = True):
+            
+            """
+            glucose - amount of glucose intake for ogtt in grams
+            bodyweight - subject bodyweight in kilograms
+            """
+            
+            t = np.arange(0,180,1)
+            d = np.zeros_like(t, dtype = float)
+            d[0]=glucose * 1e3 / 180/ 1 / bodyweight
+            x = self.simulation(t, d, plot)
+            
+            return x[:,0], x[:,4] # G, I
         
-        t = np.arange(0,180,1)
-        d = np.zeros_like(t)
-        RaG_iv = np.zeros_like(t, dtype = float)
-        RaG_iv[0:int(glucose_bolus_min/1)] = glucose_bolus/1/glucose_bolus_min
-        RaI = np.zeros_like(t, dtype = float)
-        RaI[int(insulin_dosage_time/1):int(insulin_dosage_time/1)+int(insulin_bolus_min/1)] = insulin_dose/1/insulin_bolus_min
-        
-        x = self.simulation(t, d, RaG_iv, RaI, plot)
-        
-        return x[:,0], x[:,4] # G, I
 
-
-Gb = 4.7
-Ib = 6.7
-model1 = minimal_model(Gb,Ib)
-
-G, I = model1.ogtt()
-
-mypars = model1.parameters
-
-# Tg, Kx, V_G, Tx, Ti, Kg1, Kg2, T2, V_I = parGIh
-
-T_G, Kx, V_G, T_X, Kd, Td1, Td2, T_I, V_I, Kg1, Kg2, T2, Kg1m, Kg2m = model1.parameters
-
-t = np.arange(0,120,1)
-d = np.zeros_like(t)
-d[0]=50*1e3/180/1/70
-
-RaG_iv = np.zeros_like(t)
-RaI = np.zeros_like(t)
-
-g_dose = 0.3 # [g/kg]
-glu_bolus = g_dose*1e3/180 # [mmol/kg]
-glu_bolus_min = 2 
-RaG_iv=np.zeros_like(t, dtype = float)
-RaG_iv[0:int(glu_bolus_min/1)]=float(glu_bolus/1/glu_bolus_min)
-
-i_dose = 20 # [mU/kg]
-ins_bolus = i_dose # [mU/kg]
-ins_bolus_min = 5 
-RaI[int(20/1):int(20/1)+int(ins_bolus_min/1)]=ins_bolus/1/ins_bolus_min
-
-x = model1.simulation(t, d, RaG_iv, RaI)
-
-        
