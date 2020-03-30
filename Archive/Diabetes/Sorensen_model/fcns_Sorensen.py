@@ -258,7 +258,7 @@ def sim_Sorensen(t,p,Gb,Ib,r_IVG,r_IVI):
     
     TI_P = 20
         
-    Q0   = 6.33
+    Q0 = 6.33
 
     # steady state stuff
     
