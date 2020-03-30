@@ -110,6 +110,7 @@ def fcn_Bergman_extended(x, t, p, RaG_iv, d, RaI, Gb, Ib,
 
 class minimal_model:
     
+    # --- class for model with intravenous inputs
     class iv:
         
         Gb = 0
@@ -169,6 +170,7 @@ class minimal_model:
                 plt.xlabel('time [min]')
                 plt.ylabel('plasma insulin [mU/L]')
                 plt.grid()
+                plt.tight_layout()
             return x
 
         def ivgtt(self, glucose_dose = 0.3, glucose_bolus_min = 2, insulin_dose = 20, insulin_bolus_min = 5, insulin_dosage_time = 20, plot = True ):
@@ -193,7 +195,86 @@ class minimal_model:
             
             return x[:,0], x[:,4] # G, I
         
-        
+        def hyperinsulinemic_euglycemic_glucose_clamp(self, BW, insulin_rate = 120, plot = True):
+            """
+            BW - bodyweight in kilograms
+            insulin_rate - constant insulin rate in mU/min/m^2
+            body_surface_area - body surface area in m^2
+            """        
+            
+            if BW < 100:
+                body_surface_area = 1.9
+            else:
+                body_surface_area = 2.2
+            
+            t = np.arange(0,250,1)
+            Ts = t[1]-t[0] 
+            idx_final = int(t[-1]/Ts)+1    
+            x0 = np.array([self.Gb, 0, 0, 0, self.Ib, 0, 0])   
+            x = np.zeros([idx_final, len(x0)])
+            x[0,:] = x0   
+            
+            # - insulin subsystem model input
+            RaI = np.zeros(idx_final, dtype = float)
+            RaI[:] = insulin_rate*body_surface_area/BW
+            
+            # basic euglycemic glucose clamp algorithm variables
+            RaG_iv = np.zeros(idx_final, dtype = float)
+            RaG_iv[0] = 280/180/BW
+            Ts2 = 5
+            k = 0
+            r = 0
+            gammac = 8.87/10
+            FM = [0, 1]
+            SM = [0, 280/180, 280/180]
+            
+            for i in range(1,idx_final):
+                y = odeint(fcn_Bergman_extended, x[i-1,:], np.linspace((i-1)*Ts,i*Ts),
+                         args=(self.parameters,
+                               RaG_iv[i-1], 0, RaI[i-1], self.Gb, self.Ib,
+                               'none', )
+                         )
+                x[i,:] = y[-1,:]            
+                if t[i]>=Ts2*k:           
+                    Gh = x[i,0]
+                    if k == 0:
+                        r = 280/180
+                    elif k == 1:
+                        r = 280/180
+                    else:
+                        FM[0] = self.Gb/Gh
+                        SM[0] = SM[2]*FM[1]*FM[0]
+                        r = gammac*(self.Gb-Gh)+SM[0]
+                        FM = np.roll(FM,1)
+                        SM = np.roll(SM,1)  
+                    k+=1  
+                RaG_iv[i] = r/BW
+            
+            if plot:
+                plt.figure()
+                plt.subplot(311)
+                plt.title('glycemia')
+                plt.plot(t, x[:,0])
+                plt.xlabel('time [min]')
+                plt.ylabel('[mmol/L]')
+                plt.grid()
+                plt.subplot(312)
+                plt.title('plasma insulin')
+                plt.plot(t, x[:,4])
+                plt.xlabel('time [min]')
+                plt.ylabel('[mU/L]')
+                plt.grid()
+                plt.subplot(313)
+                plt.title('glucose infusion')
+                plt.plot(t, RaG_iv)
+                plt.xlabel('time [min]')
+                plt.ylabel('[mmol/min/kg]')
+                plt.grid()
+                plt.tight_layout()
+                
+            return x[:,0], x[:,4], RaG_iv # G, I, glucose infusion [mmol/min/kg]
+    
+    # --- class for model with oral inputs
     class oral:
         
         Gb = 0
@@ -273,6 +354,7 @@ class minimal_model:
                 plt.xlabel('time [min]')
                 plt.ylabel('plasma insulin [mU/L]')
                 plt.grid()
+                plt.tight_layout()
             return x
 
 
