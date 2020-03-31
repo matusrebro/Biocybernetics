@@ -54,10 +54,8 @@ def fcn_Bergman_extended(x, t, p, RaG_iv, d, RaI, Gb, Ib,
         
         T_G, Kx, V_G, T_X, Kd, Td1, Td2, T_I, Kg1, Kg2, T2, V_I, Kg1m, Kg2m = p  
         
-        
         S = Kg1m*Kg1*(G-Gb) + Kg2m*Kg2/T2*(G-Gb)-v2
         v2_dot = -1/T2 * v2 + Kg2m*Kg2/(T2**2) * (G-Gb)
-        
         v3_dot = 0
                 
     elif incretin_effect_model == 'model2':
@@ -69,7 +67,6 @@ def fcn_Bergman_extended(x, t, p, RaG_iv, d, RaI, Gb, Ib,
         v2_dot = -1/T2 * v2 + Kg2/(T2**2) * (G-Gb)
         v3_dot = 0
 
-     
     elif incretin_effect_model == 'model3':
         
         T_G, Kx, V_G, T_X, Kd, Td1, Td2, T_I, Kg1, Kg2, T2, T3, V_I, Kg3a, Kg3b = p  
@@ -324,11 +321,34 @@ class minimal_model:
             self.init_model(Gb, Ib, parameters, incretin_effect_model)
         
         
-        def simulation(self, t, d, plot = True):
+        def simulation(self, t, d, glycemic_index = 'glucose', plot = True):
             """
             t - time array in minutes
             d - carbohydrate intake array in mmol/min/kg
             """        
+            parameters = self.parameters
+            Kd, Td1, Td2 = parameters[4:7]
+            
+            if glycemic_index == 'low':
+                Kd = Kd * 0.17
+                Td1 = Td1 * 0.26
+                Td2 = Td2 * 0.26
+                parameters[4:7] = [Kd, Td1, Td2]
+            elif glycemic_index == 'medium':
+                Kd = Kd * 0.39
+                Td1 = Td1 * 0.55
+                Td2 = Td2 * 0.55
+                parameters[4:7] = [Kd, Td1, Td2]
+            elif glycemic_index == 'high':
+                Kd = Kd * 0.66
+                Td1 = Td1 * 0.79
+                Td2 = Td2 * 0.79
+                parameters[4:7] = [Kd, Td1, Td2]     
+            elif glycemic_index == 'glucose':
+                pass
+            else:
+                raise ValueError('Wrong value for glycemic_index')
+            
             Ts = t[1]-t[0] 
             idx_final = int(t[-1]/Ts)+1    
             x0 = np.array([self.Gb, 0, 0, 0, self.Ib, 0, 0])   
@@ -337,7 +357,7 @@ class minimal_model:
             
             for i in range(1,idx_final):
                 y = odeint(fcn_Bergman_extended, x[i-1,:], np.linspace((i-1)*Ts,i*Ts),
-                         args=(self.parameters,
+                         args=(parameters,
                                0, d[i-1], 0, self.Gb, self.Ib,
                                self.incretin_effect_model, )
                          )
@@ -359,7 +379,7 @@ class minimal_model:
             return x
 
 
-        def ogtt(self, glucose = 50, bodyweight = 70, plot = True):
+        def ogtt(self, glucose = 50, bodyweight = 70, glycemic_index = 'glucose', plot = True):
             
             """
             glucose - amount of glucose intake for ogtt in grams
@@ -369,7 +389,7 @@ class minimal_model:
             t = np.arange(0,180,1)
             d = np.zeros_like(t, dtype = float)
             d[0]=glucose * 1e3 / 180/ 1 / bodyweight
-            x = self.simulation(t, d, plot)
+            x = self.simulation(t, d, glycemic_index, plot)
             
             return x[:,0], x[:,4] # G, I
 
@@ -765,4 +785,3 @@ class Sorensen_model:
         x = self.simulation(t, r_IVG, r_IVI, plot)
         
         return x[:,6]*0.8, x[:,16] # G, I
-        
